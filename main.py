@@ -3,6 +3,8 @@ from discord.ext import commands
 import logging
 from dotenv import load_dotenv
 import os
+from flask import Flask
+import threading
 
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -11,9 +13,23 @@ handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w'
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-intents.members = True
 
 bot = commands.Bot(command_prefix='!', intents=intents)
+
+# Flask app for Render port binding
+app = Flask('')
+
+@app.route('/')
+def home():
+    return "Bot is running!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
+
+# Run Flask server in separate thread
+flask_thread = threading.Thread(target=run_flask)
+flask_thread.start()
 
 valorant_role = "Valorant"
 tft_role = "Teamfight Tactics"
@@ -96,4 +112,4 @@ async def poll(ctx, *, question):
     await poll_message.add_reaction("👍")
     await poll_message.add_reaction("👎")
 
-bot.run(token,  log_handler=handler, log_level=logging.DEBUG)
+bot.run(token, log_handler=handler, log_level=logging.DEBUG)
