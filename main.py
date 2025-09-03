@@ -91,7 +91,7 @@ async def lilcommands(ctx):
 
 @bot.command()
 async def poll(ctx, *, question):
-    embed = discord.Embed(title=question, description=question, color=discord.Color.green())
+    embed = discord.Embed(title="THOUGHTS NI LIL", description=question, color=discord.Color.green())
     poll_message = await ctx.send(embed=embed)
     await poll_message.add_reaction("👍")
     await poll_message.add_reaction("👎")
