@@ -125,6 +125,10 @@ async def tiktok(ctx):
     await ctx.send(f"https://www.tiktok.com/@shanghaispicy {ctx.author.mention}!")
 
 @bot.command()
+async def sav(ctx):
+    await ctx.send(f"laging galet {ctx.author.mention}!")
+
+@bot.command()
 async def rank(ctx):
     await ctx.send(f"Radiant {ctx.author.mention}!")
 
@@ -165,6 +169,12 @@ async def lilcommands(ctx):
 
 @bot.command()
 async def poll(ctx, *, question):
+    allowed_channel_id = 1407904625969074216
+
+    if ctx.channel.id != allowed_channel_id:
+        await ctx.send(f"❌ This command can only be used in <#{allowed_channel_id}>.")
+        return
+
     embed = discord.Embed(
         title="🗳️ Thoughts ni Lil — VOTE NOW!",
         description=f"**{question}**\n\nReact below to share your thoughts!",
@@ -269,4 +279,5 @@ async def hug(ctx, member: discord.Member = None):
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+
 
