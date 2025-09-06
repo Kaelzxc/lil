@@ -3,20 +3,13 @@ from discord.ext import commands
 import logging
 from dotenv import load_dotenv
 import os
+import random
+import aiohttp
+import json
 from flask import Flask
 import threading
 
-load_dotenv()
-token = os.getenv('DISCORD_TOKEN')
-
-handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
-intents = discord.Intents.default()
-intents.message_content = True
-intents.members = True
-
-bot = commands.Bot(command_prefix='!', intents=intents)
-
-# Flask app for Render port binding
+# ========== FLASK APP FOR RENDER HOSTING ==========
 app = Flask('')
 
 @app.route('/')
@@ -27,13 +20,58 @@ def run_flask():
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
 
-# Run Flask server in separate thread
+# Start Flask app in a separate thread
 flask_thread = threading.Thread(target=run_flask)
 flask_thread.start()
+
+# ========== DISCORD BOT SETUP ==========
+load_dotenv()
+token = os.getenv('DISCORD_TOKEN')
+GIPHY_API_KEY = os.getenv('GIPHY_API_KEY')  # Put your Giphy API key in .env
+
+handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
+intents = discord.Intents.default()
+intents.message_content = True
+intents.members = True
+
+bot = commands.Bot(command_prefix='!', intents=intents)
 
 valorant_role = "Valorant"
 tft_role = "Teamfight Tactics"
 lol_role = "League of Legends"
+
+LIL_STATUS_FILE = "CHI_status.json"
+
+# Load lil status from file on startup
+try:
+    with open(LIL_STATUS_FILE, "r") as f:
+        user_lil_status = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError):
+    user_lil_status = {}
+
+def save_lil_status():
+    with open(LIL_STATUS_FILE, "w") as f:
+        json.dump(user_lil_status, f)
+
+async def fetch_giphy_gif(search_term):
+    async with aiohttp.ClientSession() as session:
+        url = "https://api.giphy.com/v1/gifs/search"
+        params = {
+            "api_key": GIPHY_API_KEY,
+            "q": search_term,
+            "limit": 25,
+            "offset": 0,
+            "rating": "pg-13",
+            "lang": "en"
+        }
+        async with session.get(url, params=params) as resp:
+            if resp.status == 200:
+                data = await resp.json()
+                gifs = data.get("data")
+                if gifs:
+                    chosen = random.choice(gifs)
+                    return chosen["images"]["original"]["url"]
+    return None
 
 @bot.event
 async def on_ready():
@@ -48,7 +86,17 @@ async def on_message(message):
     if message.author == bot.user:
         return
 
-    if "zee" in message.content.lower():
+    content = message.content.lower()
+
+    # Auto-replies for greetings
+    if "goodmorning" in content or "good morning" in content:
+        await message.channel.send(f"Good morning, {message.author.mention}! ☀️")
+    elif "goodnight" in content or "good night" in content:
+        await message.channel.send(f"Good night, {message.author.mention}! 🌙")
+    elif "hello" in content:
+        await message.channel.send(f"Hello there, {message.author.mention}! 👋")
+
+    if "zee" in content:
         await message.delete()
         await message.channel.send(f"{message.author.mention} - wag mo banggitin yan!")
 
@@ -59,8 +107,18 @@ async def hello(ctx):
     await ctx.send(f"Hello {ctx.author.mention}!")
 
 @bot.command()
-async def lil(ctx):
-    await ctx.send(f"Sleeping {ctx.author.mention}!")
+async def lil(ctx, *, status: str = None):
+    user_id = str(ctx.author.id)
+    if status is None:
+        current_status = user_lil_status.get(user_id)
+        if current_status:
+            await ctx.send(f"{ctx.author.mention} Lil is currently **{current_status}**!")
+        else:
+            await ctx.send(f"{ctx.author.mention} has no lil status set. Use `!Lil <status>` to set one!")
+    else:
+        user_lil_status[user_id] = status
+        save_lil_status()
+        await ctx.send(f"{ctx.author.mention}, your lil status has been set to **{status}**!")
 
 @bot.command()
 async def tiktok(ctx):
@@ -107,9 +165,107 @@ async def lilcommands(ctx):
 
 @bot.command()
 async def poll(ctx, *, question):
-    embed = discord.Embed(title="THOUGHTS NI LIL", description=question, color=discord.Color.green())
+    embed = discord.Embed(
+        title="🗳️ Thoughts ni Lil — VOTE NOW!",
+        description=f"**{question}**\n\nReact below to share your thoughts!",
+        color=random.choice([
+            discord.Color.green(),
+            discord.Color.blue(),
+            discord.Color.purple(),
+            discord.Color.gold()
+        ]),
+        timestamp=ctx.message.created_at
+    )
+
+    embed.set_thumbnail(url="https://i.pinimg.com/736x/5c/dd/8d/5cdd8d89ce9d32e38f97c50ccece9933.jpg")
+    embed.set_footer(
+        text="📝 Powered by Lil bot - aiz • Vote with your reaction!",
+        icon_url=ctx.guild.icon.url if ctx.guild.icon else discord.Embed.Empty
+    )
+
     poll_message = await ctx.send(embed=embed)
     await poll_message.add_reaction("👍")
     await poll_message.add_reaction("👎")
+    await poll_message.add_reaction("🤔")
 
+@bot.command()
+async def tiktoklive(ctx):
+    target_channel_id = 1413683705876316241
+    channel = bot.get_channel(target_channel_id)
+
+    if channel is not None:
+        embed = discord.Embed(
+            title="🔴 lil ₍^. .^₎⟆ is LIVE on TikTok!",
+            description=(
+                "🎥 **lil ₍^. .^₎⟆** just went live on TikTok!\n\n"
+                "✨ Come chill, vibe, and be part of the stream — it’s gonna be a fun time you won’t want to miss.\n\n"
+                "👉 **Tap below to join the live now:**\n"
+                "[📲 Watch the Stream](https://www.tiktok.com/@shanghaispicy)"
+            ),
+            color=discord.Color.from_rgb(255, 0, 102),
+            timestamp=ctx.message.created_at
+        )
+
+        embed.set_thumbnail(url="https://p16-sign-sg.tiktokcdn.com/tos-alisg-avt-0068/428c7dae719755755d2ef225baaf33b5~tplv-tiktokx-cropcenter:1080:1080.jpeg")
+        embed.set_image(url="https://i.pinimg.com/originals/82/14/dc/8214dc94282b4037f65747e130ca6c70.gif")
+
+        embed.set_footer(
+            text="🔗 Powered by Lil bot • Brought to you by aiz",
+            icon_url=ctx.guild.icon.url if ctx.guild.icon else discord.Embed.Empty
+        )
+
+        await channel.send(content="@everyone", embed=embed)
+        await ctx.send("✅ Live alert sent!")
+    else:
+        await ctx.send("❌ Could not find the live announcement channel.")
+
+@bot.command()
+async def kiss(ctx, member: discord.Member = None):
+    if not member:
+        await ctx.send("You need to mention someone to kiss! 😳")
+        return
+    if member == ctx.author:
+        await ctx.send("Awww, self-love is important! 😘")
+        return
+    gif = await fetch_giphy_gif("anime kiss")
+    if not gif:
+        await ctx.send("Couldn't fetch a kiss GIF right now, try again later!")
+        return
+    embed = discord.Embed(description=f"💋 {ctx.author.mention} kisses {member.mention}!", color=discord.Color.pink())
+    embed.set_image(url=gif)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def slap(ctx, member: discord.Member = None):
+    if not member:
+        await ctx.send("Mention someone to slap! 😡")
+        return
+    if member == ctx.author:
+        await ctx.send("Why are you slapping yourself? 😢")
+        return
+    gif = await fetch_giphy_gif("anime slap")
+    if not gif:
+        await ctx.send("Couldn't fetch a slap GIF right now, try again later!")
+        return
+    embed = discord.Embed(description=f"👋 {ctx.author.mention} slaps {member.mention}!", color=discord.Color.red())
+    embed.set_image(url=gif)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def hug(ctx, member: discord.Member = None):
+    if not member:
+        await ctx.send("You gotta mention someone to hug! 🤗")
+        return
+    if member == ctx.author:
+        await ctx.send("Sending a virtual hug to yourself 🤗💖")
+        return
+    gif = await fetch_giphy_gif("anime hug")
+    if not gif:
+        await ctx.send("Couldn't fetch a hug GIF right now, try again later!")
+        return
+    embed = discord.Embed(description=f"🤗 {ctx.author.mention} gives {member.mention} a warm hug!", color=discord.Color.blue())
+    embed.set_image(url=gif)
+    await ctx.send(embed=embed)
+
+# Run bot
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
