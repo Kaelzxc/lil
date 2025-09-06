@@ -169,15 +169,23 @@ async def lilcommands(ctx):
 
 @bot.command()
 async def poll(ctx, *, question):
-    allowed_channel_id = 1407904625969074216
+    target_channel_id = 1407904625969074216
+    target_channel = bot.get_channel(target_channel_id)
 
-    if ctx.channel.id != allowed_channel_id:
-        await ctx.send(f"❌ This command can only be used in <#{allowed_channel_id}>.")
+    if not target_channel:
+        await ctx.send("❌ Couldn't find the target poll channel.")
         return
 
     embed = discord.Embed(
-        title="🗳️ Thoughts ni Lil — VOTE NOW!",
-        description=f"**{question}**\n\nReact below to share your thoughts!",
+        title="📢 **THOUGHTS NI LIL – CAST YOUR VOTE!**",
+        description=(
+            f"**⬇️ QUESTION:**\n"
+            f"__{question}__\n\n"
+            f"👍 = Agree\n"
+            f"👎 = Disagree\n"
+            f"🤔 = Neutral / Thinking\n\n"
+            f"🗳️ React below to vote!"
+        ),
         color=random.choice([
             discord.Color.green(),
             discord.Color.blue(),
@@ -189,14 +197,17 @@ async def poll(ctx, *, question):
 
     embed.set_thumbnail(url="https://i.pinimg.com/736x/5c/dd/8d/5cdd8d89ce9d32e38f97c50ccece9933.jpg")
     embed.set_footer(
-        text="📝 Powered by Lil bot - aiz • Vote with your reaction!",
+        text="📝 Powered by Lil bot • Made by aiz",
         icon_url=ctx.guild.icon.url if ctx.guild.icon else discord.Embed.Empty
     )
 
-    poll_message = await ctx.send(embed=embed)
+    poll_message = await target_channel.send(embed=embed)
     await poll_message.add_reaction("👍")
     await poll_message.add_reaction("👎")
     await poll_message.add_reaction("🤔")
+
+    await ctx.send(f"✅ Your poll has been posted in {target_channel.mention}!")
+
 
 @bot.command()
 async def tiktoklive(ctx):
@@ -279,5 +290,6 @@ async def hug(ctx, member: discord.Member = None):
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+
 
 
