@@ -45,13 +45,13 @@ LIL_STATUS_FILE = "CHI_status.json"
 # Load lil status from file on startup
 try:
     with open(LIL_STATUS_FILE, "r") as f:
-        user_lil_status = json.load(f)
+        lil_status = json.load(f).get("status", None)
 except (FileNotFoundError, json.JSONDecodeError):
-    user_lil_status = {}
+    lil_status = None
 
 def save_lil_status():
     with open(LIL_STATUS_FILE, "w") as f:
-        json.dump(user_lil_status, f)
+        json.dump({"status": lil_status}, f)
 
 async def fetch_giphy_gif(search_term):
     async with aiohttp.ClientSession() as session:
@@ -108,17 +108,26 @@ async def hello(ctx):
 
 @bot.command()
 async def lil(ctx, *, status: str = None):
-    user_id = str(ctx.author.id)
+    global lil_status
+
+    # ID of the only person who can change lil status
+    ALLOWED_USER_ID = 625311802703740968  # <-- replace with your Discord user ID
+
     if status is None:
-        current_status = user_lil_status.get(user_id)
-        if current_status:
-            await ctx.send(f"{ctx.author.mention} Lil is currently **{current_status}**!")
+        # Just viewing the current status
+        if lil_status:
+            await ctx.send(f"📢 Lil is currently **{lil_status}**!")
         else:
-            await ctx.send(f"{ctx.author.mention} has no lil status set. Use `!Lil <status>` to set one!")
+            await ctx.send("Lil status has not been set yet.")
     else:
-        user_lil_status[user_id] = status
+        # Trying to update the status
+        if ctx.author.id != ALLOWED_USER_ID:
+            await ctx.send("❌ You are not allowed to change Lil's status.")
+            return
+
+        lil_status = status
         save_lil_status()
-        await ctx.send(f"{ctx.author.mention}, your lil status has been set to **{status}**!")
+        await ctx.send(f"✅ Lil's status has been set to **{status}**!")
 
 @bot.command()
 async def tiktok(ctx):
@@ -337,8 +346,63 @@ async def vanish(ctx, member: discord.Member = None):
     embed.set_image(url=gif)
     await ctx.send(embed=embed)
 
+@bot.command()
+async def wyr(ctx):
+    """Edgy Tagalog Would You Rather game"""
+    questions = [
+        # Life struggles
+        ("Mawala net mo habang ranked 🔌", "Mawala kuryente habang live ⚡"),
+        ("Maging single forever 💔", "Maging taken pero toxic 😬"),
+        ("Di ka na makakain ng Jollibee 🍗", "Di ka na makakain ng Mang Inasal 🍴"),
+        ("Maging pogi/ganda pero bobo 😅", "Maging matalino pero walang jowa 📖"),
+        ("Laging late pero pogi/ganda ⏰", "Laging on time pero baduy 😬"),
+        ("Maging mayaman pero pangit 💸", "Maging maganda/pogi pero broke 💔"),
+        ("Laging galet si sav 😡", "Laging clingy si aiz 🥴"),
+
+        # Gaming
+        ("Maging Radiant sa Valorant 🎯", "Maging Challenger sa LoL 🧙‍♂️"),
+        ("Magpuyat sa ML hanggang 6AM 📱", "Mag-all nighter sa thesis 📚"),
+        ("Magka-ace sa Valorant 💥", "Mag-pentakill sa LoL 🔥"),
+        ("Talo lagi sa ranked 😭", "AFK lagi teammate mo 😡"),
+
+        # School/Work
+        ("Walang kape habang exam ☕", "Walang tulog habang exam 😵"),
+        ("Mag-report sa harap ng class 📢", "Mag-sayaw sa TikTok sa harap ng lahat 💃"),
+        ("Maging cum laude pero walang friends 🎓", "Maging happy-go-lucky pero bagsak lagi 😅"),
+        ("Laging gutom sa school 🍜", "Laging broke sa school 💸"),
+
+        # Daily life
+        ("Sumakay ng jeep na siksikan 🚌", "Sumakay ng MRT na amoy pawis 🚇"),
+        ("Sumabay sa bagyo 🌪️", "Sumabay sa baha 🌊"),
+        ("Maglakad sa ulan 🌧️", "Maglakad sa init ng araw ☀️"),
+        ("Laging lowbat 🔋", "Laging walang load 📶"),
+
+        # Relationships / Spicy (but safe)
+        ("Maging loyal pero laging busy 📵", "Maging sweet pero seloso/selosa 😏"),
+        ("Makita ex mo araw-araw 👀", "Maging classmate ang ex mo buong semester 📚"),
+        ("Maging marupok 💔", "Maging manhid 🥶"),
+        ("Ghosted 👻", "Zinonezone ☝️"),
+    ]
+
+    option1, option2 = random.choice(questions)
+
+    embed = discord.Embed(
+        title="🤔 Would You Rather (Pinoy Edition)",
+        description=f"1️⃣ {option1}\n\n2️⃣ {option2}\n\nReact ka na!",
+        color=discord.Color.random(),
+        timestamp=ctx.message.created_at
+    )
+    embed.set_footer(text="📝 Powered by Lil bot • Edgy Tagalog WYR")
+
+    wyr_message = await ctx.send(embed=embed)
+
+    # Reactions for voting
+    await wyr_message.add_reaction("1️⃣")
+    await wyr_message.add_reaction("2️⃣")
+
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+
 
 
 
