@@ -288,8 +288,58 @@ async def hug(ctx, member: discord.Member = None):
     embed.set_image(url=gif)
     await ctx.send(embed=embed)
 
+@bot.command()
+async def punch(ctx, member: discord.Member = None):
+    """Playful, non-graphic punch (like slap)."""
+    if not member:
+        await ctx.send("Mention someone to punch! (playfully) 🥊")
+        return
+    if member == ctx.author:
+        await ctx.send("Why are you punching yourself? Be kind to yourself! 🤕")
+        return
+    gif = await fetch_giphy_gif("anime punch")
+    if not gif:
+        await ctx.send("Couldn't fetch a punch GIF right now, try again later!")
+        return
+    embed = discord.Embed(description=f"🥊 {ctx.author.mention} playfully punches {member.mention}!", color=discord.Color(0xE53935))
+    embed.set_image(url=gif)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def kill(ctx, member: discord.Member = None):
+    """Cute boop command — PG friendly."""
+    if not member:
+        await ctx.send("Who do you want to kill? Mention someone! 👀")
+        return
+    if member == ctx.author:
+        await ctx.send("Killing yourself? A+ self-harm. 🤗")
+        return
+    gif = await fetch_giphy_gif("kill anime")
+    if not gif:
+        await ctx.send("Couldn't fetch a kill GIF right now, try again later!")
+        return
+    embed = discord.Embed(description=f"👆 {ctx.author.mention} gives {member.mention} a finishing blow!", color=discord.Color.blue())
+    embed.set_image(url=gif)
+    await ctx.send(embed=embed)
+
+@bot.command()
+async def vanish(ctx, member: discord.Member = None):
+    """Playful 'vanish' — harmless alternative to destructive commands."""
+    target_text = f" at {member.mention}" if member and member != ctx.author else ""
+    if member == ctx.author:
+        await ctx.send("You try to vanish... but you're still here. ✨")
+        return
+    gif = await fetch_giphy_gif("poof disappear anime")
+    if not gif:
+        await ctx.send(f"{ctx.author.mention} dramatically vanishes{target_text}... (but comes back soon).")
+        return
+    embed = discord.Embed(description=f"✨ {ctx.author.mention} dramatically vanishes{target_text}... (it's just a prank!)", color=discord.Color.purple())
+    embed.set_image(url=gif)
+    await ctx.send(embed=embed)
+
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+
 
 
 
