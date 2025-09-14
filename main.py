@@ -179,10 +179,6 @@ async def tiktok(ctx):
     await ctx.send(f"https://www.tiktok.com/@shanghaispicy {ctx.author.mention}!")
 
 @bot.command()
-async def sav(ctx):
-    await ctx.send(f"laging galet {ctx.author.mention}!")
-
-@bot.command()
 async def rank(ctx):
     await ctx.send(f"Radiant {ctx.author.mention}!")
 
@@ -447,6 +443,7 @@ async def wyr(ctx):
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+
 
 
 
