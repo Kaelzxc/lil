@@ -443,49 +443,62 @@ async def wyr(ctx):
 @bot.command()
 async def vct(ctx, mode: str = "upcoming"):
     """
-    Fetch VCT match info from vlrggapi.
-    Usage: !vct upcoming | !vct live | !vct results
+    Fetches VCT match info using vlrggapi.
+    Usage: !vct upcoming | live | results
     """
-    valid_modes = {"upcoming": "upcoming", "live": "live_score", "results": "results"}
-    if mode not in valid_modes:
-        await ctx.send("⚠️ Invalid option! Use: `!vct upcoming`, `!vct live`, or `!vct results`.")
+
+    mode_map = {
+        "upcoming": "upcoming",
+        "live": "live_score",
+        "results": "results"
+    }
+
+    if mode.lower() not in mode_map:
+        await ctx.send("❌ Invalid mode! Use one of: `!vct upcoming`, `!vct live`, `!vct results`")
         return
+
+    q = mode_map[mode.lower()]
+    url = f"https://vlrggapi.vercel.app/match?q={q}"
 
     async with aiohttp.ClientSession() as session:
-        url = f"https://vlrggapi.vercel.app/match?q={valid_modes[mode]}"
-        async with session.get(url) as resp:
-            if resp.status != 200:
-                await ctx.send("⚠️ Couldn't fetch match data. Try again later.")
-                return
-            data = await resp.json()
+        try:
+            async with session.get(url, timeout=10) as resp:
+                text = await resp.text()
+                # Debug info (you can comment this out later)
+                print(f"[VCT Debug] GET {url} → Status: {resp.status}, Response starts with: {text[:200]}")
 
-    # Adjust depending on how the API returns data
-    matches = data.get("data", [])
-    if not matches:
-        await ctx.send(f"No {mode} matches found right now.")
+                if resp.status != 200:
+                    await ctx.send(f"⚠️ Couldn't fetch match data. HTTP status: {resp.status}")
+                    return
+
+                data = await resp.json()
+        except Exception as e:
+            await ctx.send("⚠️ Error fetching match data: " + str(e))
+            return
+
+    segments = data.get("data", {}).get("segments", [])
+    if not segments:
+        await ctx.send(f"ℹ️ No {mode} matches found right now.")
         return
 
-    # Show only first 3 matches for readability
-    for match in matches[:3]:
-        teams = f"{match.get('team1', 'TBD')} vs {match.get('team2', 'TBD')}"
-        status = match.get("status", "Unknown")
-        time = match.get("time", "TBD")
-        event = match.get("tournament", "Unknown Event")
+    for seg in segments[:3]:
+        team1 = seg.get("team1", "TBD")
+        team2 = seg.get("team2", "TBD")
+        series = seg.get("match_series", "")
+        event = seg.get("match_event", "")
+        time_until = seg.get("time_until_match", "") or seg.get("unix_timestamp", "")
+        match_page = seg.get("match_page", "")
 
         embed = discord.Embed(
-            title=f"📺 VCT {mode.title()} Match",
-            description=f"**{teams}**\n\n🕒 {time}\n📌 {event}\n📊 Status: {status}",
-            color=discord.Color.purple()
+            title=f"{event} • {series}",
+            description=f"**{team1} vs {team2}**\n🕒 {time_until}",
+            color=discord.Color.green() if mode.lower() == "live" else discord.Color.blue()
         )
-        if match.get("link"):
-            embed.url = f"https://www.vlr.gg{match['link']}"
+        if match_page:
+            embed.add_field(name="Match Page", value=f"[Click here to view]({match_page})", inline=False)
+        embed.set_footer(text=f"Mode: {mode.title()} • Powered by vlr.gg API")
 
-        embed.set_footer(text="Data from vlr.gg • Powered by Lil Bot")
         await ctx.send(embed=embed)
-
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
-
-
-
