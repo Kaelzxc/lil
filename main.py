@@ -568,20 +568,24 @@ async def vct(ctx, mode: str = "upcoming"):
         logo2 = normalize_url(seg.get("team2_logo") or seg.get("flag2"))
 
         embed = discord.Embed(
-            title=f"🏆 {event}",
-            description=f"**{series}**\n\n🕒 **Live Now 🔴**",
-            color=discord.Color.red(),
-            timestamp=datetime.datetime.utcnow()
-        )
-        embed.add_field(
-            name="📊 Scoreboard",
-            value=f"**{t1}**  `{s1}`  🆚  `{s2}`  **{t2}**",
-            inline=False
-        )
-        if logo1 and logo2:
-            embed.set_thumbnail(url=logo1)
-            embed.set_image(url=logo2)
-        embed.set_footer(text="Auto-updating every 60s • Powered by lil bot")
+    title=f"🏆 {event}",
+    description=f"**{series}**\n\n🕒 **Live Now 🔴**",
+    color=discord.Color.red(),
+    timestamp=datetime.datetime.utcnow()
+)
+
+embed.add_field(
+    name="📊 Scoreboard",
+    value=f"**{t1}** {s1} 🆚 {s2} **{t2}**",
+    inline=False
+)
+
+if logo1 and logo2:
+    embed.set_thumbnail(url=logo1)
+    embed.set_image(url=logo2)
+
+embed.set_footer(text="Auto-updating every 60s • Powered by vlr.gg API")
+
 
         msg = await ctx.send(embed=embed)
         live_match_messages[ctx.channel.id] = msg
@@ -593,6 +597,7 @@ async def vct(ctx, mode: str = "upcoming"):
         
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
 
 
