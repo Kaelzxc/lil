@@ -533,80 +533,84 @@ async def update_live_matches():
 async def vct(ctx, mode: str = "upcoming"):
     mode = mode.lower()
 
-    if mode != "live":
-        await ctx.send("⚠️ Use `!vct live` for live match tracking.")
-        return
+    if mode == "live":
+        url = "https://vlrggapi.vercel.app/match?q=live_score"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=15) as resp:
+                if resp.status != 200:
+                    await ctx.send("⚠️ No live matches right now.")
+                    return
+                data = await resp.json()
 
-    url = "https://vlrggapi.vercel.app/match?q=live_score"
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, timeout=15) as resp:
-            if resp.status != 200:
-                await ctx.send("⚠️ No live matches right now.")
-                return
-            data = await resp.json()
+        matches = data.get("data", {}).get("segments", []) or data.get("data", {}).get("matches", [])
+        if not matches:
+            await ctx.send("ℹ️ No live matches at the moment.")
+            return
 
-    matches = data.get("data", {}).get("segments", []) or data.get("data", {}).get("matches", [])
-    if not matches:
-        await ctx.send("ℹ️ No live matches at the moment.")
-        return
+        seg = matches[0]
+        t1 = seg.get("team1") or seg.get("team1_name") or "TBD"
+        t2 = seg.get("team2") or seg.get("team2_name") or "TBD"
+        s1 = seg.get("score1") or seg.get("team1_score") or seg.get("score_a") or 0
+        s2 = seg.get("score2") or seg.get("team2_score") or seg.get("score_b") or 0
+        event = seg.get("match_event") or seg.get("tournament_name") or "Unknown Event"
+        series = seg.get("match_series") or seg.get("round_info") or "BO3"
+        logo1 = normalize_url(seg.get("team1_logo") or seg.get("flag1"))
+        logo2 = normalize_url(seg.get("team2_logo") or seg.get("flag2"))
 
-    seg = matches[0]
-    t1 = seg.get("team1") or seg.get("team1_name") or "TBD"
-    t2 = seg.get("team2") or seg.get("team2_name") or "TBD"
-    s1 = seg.get("score1") or seg.get("team1_score") or seg.get("score_a")
-    s2 = seg.get("score2") or seg.get("team2_score") or seg.get("score_b")
-    event = seg.get("match_event") or seg.get("tournament_name") or "Unknown Event"
-    series = seg.get("match_series") or seg.get("round_info") or ""
-    logo1 = normalize_url(seg.get("team1_logo") or seg.get("flag1"))
-    logo2 = normalize_url(seg.get("team2_logo") or seg.get("flag2"))
+        bans_picks = seg.get("bans_picks") or "No bans/picks info available."
 
-    # Create embed
-    embed = discord.Embed(
-        title=f"🏆 {event}",
-        description=f"**{series}**\n\n🔴 **LIVE NOW**",
-        color=discord.Color.red(),
-        timestamp=datetime.datetime.utcnow()
-    )
-
-    # Set logos
-    if logo1:
-        embed.set_thumbnail(url=logo1)  # left team
-    if logo2:
-        embed.set_author(name=t2, icon_url=logo2)  # right team
-
-    # Scoreboard field
-    embed.add_field(
-        name="📊 Scoreboard",
-        value=f"🟥 **{t1}** `{s1}`  ⚔️  `{s2}` **{t2}` 🟦",
-        inline=False
-    )
-
-    # Maps info
-    if seg.get("maps"):
-        maps_info = []
-        for m in seg["maps"]:
-            map_name = m.get("map", "Unknown Map")
-            mscore = m.get("score", "–")
-            maps_info.append(f"• **{map_name}** → `{mscore}`")
-        embed.add_field(
-            name="🗺️ Maps",
-            value="\n".join(maps_info),
-            inline=False
+        embed = discord.Embed(
+            title=f"🏆 {event}",
+            description=f"**{series}** • 🔴 LIVE NOW",
+            color=discord.Color.red(),
+            timestamp=datetime.datetime.utcnow()
         )
 
-    # Footer
-    embed.set_footer(text="Auto-updating every 60s • Data from vlr.gg API")
+        # Team logos
+        if logo1:
+            embed.set_thumbnail(url=logo1)  # Left team
+        if logo2:
+            embed.set_image(url=logo2)  # Right team (will show large image on the side)
 
-    # Send message & save for live updates
-    msg = await ctx.send(embed=embed)
-    live_match_messages[ctx.channel.id] = msg
+        # Scoreboard with VS in the middle
+        embed.add_field(
+            name=f"{t1} 🟥",
+            value=f"**{s1}**",
+            inline=True
+        )
+        embed.add_field(
+            name="⚔️ VS ⚔️",
+            value="—",
+            inline=True
+        )
+        embed.add_field(
+            name=f"🟦 {t2}",
+            value=f"**{s2}**",
+            inline=True
+        )
 
-    # Start auto-updater if not running
-    if not update_live_matches.is_running():
-        update_live_matches.start()
+        # Bans / Picks / Map info
+        if bans_picks:
+            embed.add_field(
+                name="🎮 Bans / Picks",
+                value=bans_picks,
+                inline=False
+            )
+
+        embed.set_footer(text="Auto-updating every 60s • Powered by vlr.gg")
+
+        msg = await ctx.send(embed=embed)
+        live_match_messages[ctx.channel.id] = msg
+
+        if not update_live_matches.is_running():
+            update_live_matches.start()
+
+    else:
+        await ctx.send("⚠️ Use `!vct live` for live match tracking.")
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
 
 
