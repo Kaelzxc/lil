@@ -445,6 +445,17 @@ async def wyr(ctx):
     await wyr_message.add_reaction("1️⃣")
     await wyr_message.add_reaction("2️⃣")
 
+def normalize_url(u: str) -> str:
+    """Fix broken relative URLs from API"""
+    if not u:
+        return None
+    if u.startswith("//"):
+        return "https:" + u
+    if u.startswith("/"):
+        return "https://www.vlr.gg" + u
+    return u
+
+
 @bot.command()
 async def vct(ctx, mode: str = "upcoming"):
     """
@@ -490,9 +501,12 @@ async def vct(ctx, mode: str = "upcoming"):
 
     # Show top 3 matches
     for seg in segments[:3]:
-        # ✅ Team names
-        t1 = seg.get("team1") or seg.get("team1_name") or seg.get("teams", [{}])[0].get("name", "TBD")
-        t2 = seg.get("team2") or seg.get("team2_name") or seg.get("teams", [{},""])[1].get("name", "TBD")
+        # ✅ Team names & logos
+        t1 = seg.get("team1") or seg.get("team1_name") or "TBD"
+        t2 = seg.get("team2") or seg.get("team2_name") or "TBD"
+
+        logo1 = normalize_url(seg.get("team1_logo") or seg.get("flag1"))
+        logo2 = normalize_url(seg.get("team2_logo") or seg.get("flag2"))
 
         # ✅ Scores
         s1 = seg.get("score1") or seg.get("team1_score") or seg.get("score_a")
@@ -505,31 +519,39 @@ async def vct(ctx, mode: str = "upcoming"):
 
         # ✅ Time info
         if mode_key == "results":
-            time_info = seg.get("time_completed") or seg.get("unix_timestamp") or "Finished"
+            time_info = seg.get("time_completed") or "Finished"
         elif mode_key == "live":
             time_info = "Live Now 🔴"
         else:
-            time_info = seg.get("time_until_match") or seg.get("unix_timestamp") or "TBD"
+            time_info = seg.get("time_until_match") or "TBD"
 
-        # ✅ Build embed
-        embed = discord.Embed(
-            title=f"{event}" + (f" • {series}" if series else ""),
-            color=(
-                discord.Color.red() if mode_key == "live"
-                else discord.Color.green() if mode_key == "results"
-                else discord.Color.blue()
-            )
+        # ✅ Embed styling
+        color = (
+            discord.Color.red() if mode_key == "live"
+            else discord.Color.green() if mode_key == "results"
+            else discord.Color.blue()
         )
 
-        # Show matchup & score
+        embed = discord.Embed(
+            title=f"{event}" + (f" • {series}" if series else ""),
+            description=f"🕒 **{time_info}**",
+            color=color
+        )
+
+        # Match score line
         if mode_key in ("results", "live") and (match_score or (s1 is not None and s2 is not None)):
             scoreline = match_score if match_score else f"{s1} – {s2}"
-            embed.add_field(name="Match", value=f"**{t1}** {scoreline} **{t2}**", inline=False)
+            embed.add_field(
+                name="Match",
+                value=f"{t1} **{scoreline}** {t2}",
+                inline=False
+            )
         else:
-            embed.add_field(name="Match", value=f"**{t1}** vs **{t2}**", inline=False)
-
-        # Add time info
-        embed.add_field(name="🕒 Time", value=time_info, inline=True)
+            embed.add_field(
+                name="Match",
+                value=f"{t1} 🆚 {t2}",
+                inline=False
+            )
 
         # ✅ Map-by-map results (only for results mode)
         if mode_key == "results" and seg.get("maps"):
@@ -540,10 +562,17 @@ async def vct(ctx, mode: str = "upcoming"):
                 maps_info.append(f"• {map_name}: {mscore}")
             embed.add_field(name="📊 Maps", value="\n".join(maps_info), inline=False)
 
+        # ✅ Add logos if both teams have one
+        if logo1 and logo2:
+            embed.set_thumbnail(url=logo1)
+            embed.set_image(url=logo2)
+
         embed.set_footer(text=f"Mode: {mode_key.title()} • Powered by vlr.gg API")
 
         await ctx.send(embed=embed)
 
+
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
