@@ -441,60 +441,51 @@ async def wyr(ctx):
     await wyr_message.add_reaction("2️⃣")
 
 @bot.command()
-async def vct(ctx, mode: str = "live"):
-    valid_modes = ["live", "upcoming", "results"]
+async def vct(ctx, mode: str = "upcoming"):
+    """
+    Fetch VCT match info from vlrggapi.
+    Usage: !vct upcoming | !vct live | !vct results
+    """
+    valid_modes = {"upcoming": "upcoming", "live": "live_score", "results": "results"}
     if mode not in valid_modes:
-        await ctx.send("❌ Invalid mode! Use: `!vct live`, `!vct upcoming`, or `!vct results`")
+        await ctx.send("⚠️ Invalid option! Use: `!vct upcoming`, `!vct live`, or `!vct results`.")
         return
-
-    url = f"https://vlrggapi.vercel.app/match/{mode}"
 
     async with aiohttp.ClientSession() as session:
-        try:
-            async with session.get(url, timeout=10) as resp:
-                resp_text = await resp.text()
-                # Debug print/log
-                print(f"[VCT DEBUG] GET {url} → {resp.status}, body starts with: {resp_text[:200]}")
+        url = f"https://vlrggapi.vercel.app/match?q={valid_modes[mode]}"
+        async with session.get(url) as resp:
+            if resp.status != 200:
+                await ctx.send("⚠️ Couldn't fetch match data. Try again later.")
+                return
+            data = await resp.json()
 
-                if resp.status != 200:
-                    await ctx.send(f"⚠️ Couldn't fetch match data. HTTP status: {resp.status}")
-                    return
-
-                data = await resp.json()
-        except Exception as e:
-            await ctx.send("⚠️ Error during fetch: " + str(e))
-            return
-
+    # Adjust depending on how the API returns data
     matches = data.get("data", [])
     if not matches:
-        await ctx.send("📭 No matches found for mode: " + mode)
+        await ctx.send(f"No {mode} matches found right now.")
         return
 
-    # Show first match as example
-    m = matches[0]
-    tournament = m.get('tournament', {}).get('name', 'Unknown Tournament')
-    status = m.get('status', 'Unknown Status')
-    match_time = m.get('time', 'TBD')
-    teams = m.get('teams', [])
+    # Show only first 3 matches for readability
+    for match in matches[:3]:
+        teams = f"{match.get('team1', 'TBD')} vs {match.get('team2', 'TBD')}"
+        status = match.get("status", "Unknown")
+        time = match.get("time", "TBD")
+        event = match.get("tournament", "Unknown Event")
 
-    embed = discord.Embed(
-        title=f"🏆 {tournament}",
-        description=f"📌 Status: {status}\n🕒 Time: {match_time}",
-        color=discord.Color.green()
-    )
-    if len(teams) == 2:
-        t1 = teams[0]
-        t2 = teams[1]
-        embed.add_field(
-            name="Match",
-            value=f"**{t1.get('name')}** ({t1.get('score', '-')}) vs **{t2.get('name')}** ({t2.get('score', '-')})",
-            inline=False
+        embed = discord.Embed(
+            title=f"📺 VCT {mode.title()} Match",
+            description=f"**{teams}**\n\n🕒 {time}\n📌 {event}\n📊 Status: {status}",
+            color=discord.Color.purple()
         )
+        if match.get("link"):
+            embed.url = f"https://www.vlr.gg{match['link']}"
 
-    embed.set_footer(text="Data from vlr.gg API", icon_url=None)
-    await ctx.send(embed=embed)
+        embed.set_footer(text="Data from vlr.gg • Powered by Lil Bot")
+        await ctx.send(embed=embed)
+
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
 
