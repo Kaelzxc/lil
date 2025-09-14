@@ -8,6 +8,7 @@ import aiohttp
 import json
 from flask import Flask
 import threading
+import datetime
 
 
 # ========== FLASK APP FOR RENDER HOSTING ==========
@@ -43,6 +44,9 @@ bot = commands.Bot(command_prefix='!', intents=intents)
 valorant_role = "Valorant"
 tft_role = "Teamfight Tactics"
 lol_role = "League of Legends"
+
+# Store ongoing live match messages
+live_match_messages = {}  # {ctx.channel.id: discord.Message}
 
 # ===== STATUS FILES =====
 LIL_STATUS_FILE = "CHI_status.json"
@@ -445,134 +449,138 @@ async def wyr(ctx):
     await wyr_message.add_reaction("1️⃣")
     await wyr_message.add_reaction("2️⃣")
 
-def normalize_url(u: str) -> str:
-    """Fix broken relative URLs from API"""
-    if not u:
-        return None
-    if u.startswith("//"):
-        return "https:" + u
-    if u.startswith("/"):
-        return "https://www.vlr.gg" + u
-    return u
-
-
-@bot.command()
-async def vct(ctx, mode: str = "upcoming"):
-    """
-    Fetches VCT match info using vlrggapi.
-    Usage: !vct upcoming | live | results
-    """
-
-    mode_map = {
-        "upcoming": "upcoming",
-        "live": "live_score",
-        "results": "results"
-    }
-    mode_key = mode.lower()
-
-    if mode_key not in mode_map:
-        await ctx.send("❌ Invalid mode! Use: `!vct upcoming`, `!vct live`, or `!vct results`")
+@tasks.loop(seconds=60)  # update every 60s
+async def update_live_matches():
+    """Background task to update live VCT matches in real-time."""
+    if not live_match_messages:
         return
 
-    url = f"https://vlrggapi.vercel.app/match?q={mode_map[mode_key]}"
+    url = "https://vlrggapi.vercel.app/match?q=live_score"
 
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(url, timeout=15) as resp:
-                resp_text = await resp.text()
-                print(f"[VCT DEBUG] GET {url} → {resp.status}\nResponse preview: {resp_text[:300]}")
-
-                if resp.status == 404:
-                    await ctx.send(f"ℹ️ No {mode_key} matches found right now.")
-                    return
                 if resp.status != 200:
-                    await ctx.send(f"⚠️ API error (status {resp.status}). Try again later.")
                     return
-
                 data = await resp.json()
         except Exception as e:
-            await ctx.send("⚠️ Error fetching match data: " + repr(e))
+            print("Error in live updater:", e)
             return
 
-    segments = data.get("data", {}).get("segments", []) or data.get("data", {}).get("matches", [])
-    if not segments:
-        await ctx.send(f"ℹ️ No {mode_key} matches found right now.")
+    matches = data.get("data", {}).get("segments", []) or data.get("data", {}).get("matches", [])
+    if not matches:
         return
 
-    # Show top 3 matches
-    for seg in segments[:3]:
-        # ✅ Team names & logos
+    seg = matches[0]  # Top live match only for now
+
+    # Extract info
+    t1 = seg.get("team1") or seg.get("team1_name") or "TBD"
+    t2 = seg.get("team2") or seg.get("team2_name") or "TBD"
+    logo1 = normalize_url(seg.get("team1_logo") or seg.get("flag1"))
+    logo2 = normalize_url(seg.get("team2_logo") or seg.get("flag2"))
+    s1 = seg.get("score1") or seg.get("team1_score") or seg.get("score_a")
+    s2 = seg.get("score2") or seg.get("team2_score") or seg.get("score_b")
+    match_score = seg.get("match_score") or f"{s1} – {s2}"
+    event = seg.get("match_event") or seg.get("tournament_name") or "Unknown Event"
+    series = seg.get("match_series") or seg.get("round_info") or ""
+
+    # Embed design
+    embed = discord.Embed(
+        title=f"🏆 {event}",
+        description=f"**{series}**\n\n🕒 **Live Now 🔴**",
+        color=discord.Color.red(),
+        timestamp=datetime.datetime.utcnow()
+    )
+
+    # Scoreboard field
+    embed.add_field(
+        name="📊 Scoreboard",
+        value=f"**{t1}**  `{s1}`  🆚  `{s2}`  **{t2}**",
+        inline=False
+    )
+
+    # Map breakdown if available
+    if seg.get("maps"):
+        maps_info = []
+        for m in seg["maps"]:
+            map_name = m.get("map", "Unknown Map")
+            mscore = m.get("score", "–")
+            maps_info.append(f"• **{map_name}** → `{mscore}`")
+        embed.add_field(name="🗺️ Maps", value="\n".join(maps_info), inline=False)
+
+    # Thumbnail & banner
+    if logo1 and logo2:
+        embed.set_thumbnail(url=logo1)
+        embed.set_image(url=logo2)
+
+    embed.set_footer(text="Auto-updating every 60s • Powered by vlr.gg API")
+
+    # Update stored messages
+    for channel_id, msg in live_match_messages.items():
+        try:
+            await msg.edit(embed=embed)
+        except Exception as e:
+            print(f"Failed to update live match message in {channel_id}: {e}")
+
+
+@bot.command()
+async def vct(ctx, mode: str = "upcoming"):
+    mode = mode.lower()
+
+    if mode == "live":
+        url = "https://vlrggapi.vercel.app/match?q=live_score"
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=15) as resp:
+                if resp.status != 200:
+                    await ctx.send("⚠️ No live matches right now.")
+                    return
+                data = await resp.json()
+
+        matches = data.get("data", {}).get("segments", []) or data.get("data", {}).get("matches", [])
+        if not matches:
+            await ctx.send("ℹ️ No live matches at the moment.")
+            return
+
+        seg = matches[0]  # first live match
         t1 = seg.get("team1") or seg.get("team1_name") or "TBD"
         t2 = seg.get("team2") or seg.get("team2_name") or "TBD"
-
+        s1 = seg.get("score1") or seg.get("team1_score") or seg.get("score_a")
+        s2 = seg.get("score2") or seg.get("team2_score") or seg.get("score_b")
+        match_score = seg.get("match_score") or f"{s1} – {s2}"
+        event = seg.get("match_event") or seg.get("tournament_name") or "Unknown Event"
+        series = seg.get("match_series") or seg.get("round_info") or ""
         logo1 = normalize_url(seg.get("team1_logo") or seg.get("flag1"))
         logo2 = normalize_url(seg.get("team2_logo") or seg.get("flag2"))
 
-        # ✅ Scores
-        s1 = seg.get("score1") or seg.get("team1_score") or seg.get("score_a")
-        s2 = seg.get("score2") or seg.get("team2_score") or seg.get("score_b")
-        match_score = seg.get("match_score")
-
-        # ✅ Event / Series
-        event = seg.get("match_event") or seg.get("tournament_name") or "Unknown Event"
-        series = seg.get("match_series") or seg.get("round_info") or ""
-
-        # ✅ Time info
-        if mode_key == "results":
-            time_info = seg.get("time_completed") or "Finished"
-        elif mode_key == "live":
-            time_info = "Live Now 🔴"
-        else:
-            time_info = seg.get("time_until_match") or "TBD"
-
-        # ✅ Embed styling
-        color = (
-            discord.Color.red() if mode_key == "live"
-            else discord.Color.green() if mode_key == "results"
-            else discord.Color.blue()
-        )
-
         embed = discord.Embed(
-            title=f"{event}" + (f" • {series}" if series else ""),
-            description=f"🕒 **{time_info}**",
-            color=color
+            title=f"🏆 {event}",
+            description=f"**{series}**\n\n🕒 **Live Now 🔴**",
+            color=discord.Color.red(),
+            timestamp=datetime.datetime.utcnow()
         )
-
-        # Match score line
-        if mode_key in ("results", "live") and (match_score or (s1 is not None and s2 is not None)):
-            scoreline = match_score if match_score else f"{s1} – {s2}"
-            embed.add_field(
-                name="Match",
-                value=f"{t1} **{scoreline}** {t2}",
-                inline=False
-            )
-        else:
-            embed.add_field(
-                name="Match",
-                value=f"{t1} 🆚 {t2}",
-                inline=False
-            )
-
-        # ✅ Map-by-map results (only for results mode)
-        if mode_key == "results" and seg.get("maps"):
-            maps_info = []
-            for m in seg["maps"]:
-                map_name = m.get("map", "Unknown Map")
-                mscore = m.get("score", "–")
-                maps_info.append(f"• {map_name}: {mscore}")
-            embed.add_field(name="📊 Maps", value="\n".join(maps_info), inline=False)
-
-        # ✅ Add logos if both teams have one
+        embed.add_field(
+            name="📊 Scoreboard",
+            value=f"**{t1}**  `{s1}`  🆚  `{s2}`  **{t2}**",
+            inline=False
+        )
         if logo1 and logo2:
             embed.set_thumbnail(url=logo1)
             embed.set_image(url=logo2)
 
-        embed.set_footer(text=f"Mode: {mode_key.title()} • Powered by vlr.gg API")
+        embed.set_footer(text="Auto-updating every 60s • Powered by vlr.gg API")
 
-        await ctx.send(embed=embed)
+        msg = await ctx.send(embed=embed)
+
+        live_match_messages[ctx.channel.id] = msg
+        if not update_live_matches.is_running():
+            update_live_matches.start()
+    else:
+        await ctx.send("⚠️ Use `!vct live` for live match tracking, or `!vct upcoming` / `!vct results`.")
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
 
 
