@@ -10,31 +10,23 @@ from flask import Flask
 import threading
 
 
-# Flask webserver (for uptime / health check on Render)
-app = Flask(__name__)
+# ========== FLASK APP FOR RENDER HOSTING ==========
+app = Flask('')
 
 @app.route('/')
 def home():
-    return "Lil Bot is running!"
+    return "Bot is running!"
 
-# Discord bot setup
-intents = discord.Intents.all()
-bot = commands.Bot(command_prefix="!", intents=intents)
+def run_flask():
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port)
 
-@bot.event
-async def on_ready():
-    print(f"✅ Logged in as {bot.user.name}")
+# Start Flask app in a separate thread
+flask_thread = threading.Thread(target=run_flask)
+flask_thread.start()
 
-    # Start Flask AFTER bot is ready (so Render health check passes but doesn’t block)
-    def run_flask():
-        app.run(
-            host="0.0.0.0",
-            port=int(os.environ.get("PORT", 8080)),
-            debug=False,
-            use_reloader=False
-        )
-
-    threading.Thread(target=run_flask, daemon=True).start()
+# ========== DISCORD BOT SETUP ==========
+load_dotenv()
 
 # ========== DISCORD BOT SETUP ==========
 load_dotenv()
@@ -515,4 +507,5 @@ async def vct(ctx, mode: str = "upcoming"):
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
