@@ -440,5 +440,69 @@ async def wyr(ctx):
     await wyr_message.add_reaction("1️⃣")
     await wyr_message.add_reaction("2️⃣")
 
+@bot.command()
+async def vct(ctx, mode: str = "live"):
+    """
+    Show Valorant Champions Tour matches.
+    Usage: !vct [live|upcoming|results]
+    """
+    valid_modes = ["live", "upcoming", "results"]
+    if mode not in valid_modes:
+        await ctx.send("❌ Invalid mode! Use: `!vct live`, `!vct upcoming`, or `!vct results`")
+        return
+
+    url = f"https://vlrggapi.vercel.app/match/{mode}"
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as resp:
+            if resp.status != 200:
+                await ctx.send("⚠️ Couldn't fetch match data. Try again later.")
+                return
+
+            data = await resp.json()
+            matches = data.get("data", [])
+
+            if not matches:
+                await ctx.send(f"📭 No {mode} matches found right now.")
+                return
+
+            # Limit to 3 matches for readability
+            for m in matches[:3]:
+                tournament = m['tournament']['name']
+                status = m['status']
+                match_time = m.get('time', 'TBD')
+
+                embed = discord.Embed(
+                    title=f"🏆 {tournament}",
+                    description=f"📌 **Status:** {status}\n🕒 **Time:** {match_time}",
+                    color=discord.Color.red() if mode == "live" else discord.Color.blue()
+                )
+
+                teams = m.get("teams", [])
+                if len(teams) == 2:
+                    team1, team2 = teams
+                    team1_name = team1['name']
+                    team2_name = team2['name']
+                    team1_score = team1.get('score', '-')
+                    team2_score = team2.get('score', '-')
+
+                    # Matchup field
+                    score_line = f"**{team1_name}** ({team1_score})\n🆚\n**{team2_name}** ({team2_score})"
+                    embed.add_field(name="Match", value=score_line, inline=False)
+
+                # Optional: add team logo (if API provides)
+                if "logo" in teams[0]:
+                    embed.set_thumbnail(url=teams[0]["logo"])
+
+                # Footer with vlr.gg source
+                embed.set_footer(
+                    text="🔗 Data from vlr.gg • Powered by Lil Bot",
+                    icon_url="https://cdn3.iconfinder.com/data/icons/popular-services-brands/512/valorant-512.png"
+                )
+
+                await ctx.send(embed=embed)
+
+
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
