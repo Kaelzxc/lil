@@ -469,11 +469,14 @@ async def vct(ctx, mode: str = "upcoming"):
         try:
             async with session.get(url, timeout=10) as resp:
                 text = await resp.text()
-                # Debug info (you can comment this out later)
-                print(f"[VCT Debug] GET {url} → Status: {resp.status}, Response starts with: {text[:200]}")
+                print(f"[VCT Debug] GET {url} → Status: {resp.status}, Body starts with: {text[:200]}")
 
+                # Handle "no matches" response (404 or empty JSON)
+                if resp.status == 404:
+                    await ctx.send(f"ℹ️ No {mode} matches found right now.")
+                    return
                 if resp.status != 200:
-                    await ctx.send(f"⚠️ Couldn't fetch match data. HTTP status: {resp.status}")
+                    await ctx.send(f"⚠️ API error (status {resp.status}). Try again later.")
                     return
 
                 data = await resp.json()
@@ -507,5 +510,6 @@ async def vct(ctx, mode: str = "upcoming"):
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
 
