@@ -9,19 +9,32 @@ import json
 from flask import Flask
 import threading
 
-# ========== FLASK APP FOR RENDER HOSTING ==========
+
+# Flask webserver (for uptime / health check on Render)
 app = Flask(__name__)
 
-@app.route("/")
+@app.route('/')
 def home():
-    return "Bot is running!"
+    return "Lil Bot is running!"
 
-def run_flask():
-    # No debug, no reloader → faster startup
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=False, use_reloader=False)
+# Discord bot setup
+intents = discord.Intents.all()
+bot = commands.Bot(command_prefix="!", intents=intents)
 
-# Start Flask app in a separate thread
-threading.Thread(target=run_flask, daemon=True).start()
+@bot.event
+async def on_ready():
+    print(f"✅ Logged in as {bot.user.name}")
+
+    # Start Flask AFTER bot is ready (so Render health check passes but doesn’t block)
+    def run_flask():
+        app.run(
+            host="0.0.0.0",
+            port=int(os.environ.get("PORT", 8080)),
+            debug=False,
+            use_reloader=False
+        )
+
+    threading.Thread(target=run_flask, daemon=True).start()
 
 # ========== DISCORD BOT SETUP ==========
 load_dotenv()
@@ -502,3 +515,4 @@ async def vct(ctx, mode: str = "upcoming"):
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
