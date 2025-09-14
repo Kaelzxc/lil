@@ -28,9 +28,6 @@ flask_thread.start()
 
 # ========== DISCORD BOT SETUP ==========
 load_dotenv()
-
-# ========== DISCORD BOT SETUP ==========
-load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
 GIPHY_API_KEY = os.getenv('GIPHY_API_KEY')  # Put your Giphy API key in .env
 
@@ -577,6 +574,7 @@ async def vct(ctx, mode: str = "upcoming"):
         
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
 
 
