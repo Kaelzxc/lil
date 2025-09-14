@@ -10,19 +10,18 @@ from flask import Flask
 import threading
 
 # ========== FLASK APP FOR RENDER HOSTING ==========
-app = Flask('')
+app = Flask(__name__)
 
-@app.route('/')
+@app.route("/")
 def home():
     return "Bot is running!"
 
 def run_flask():
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    # No debug, no reloader → faster startup
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8080)), debug=False, use_reloader=False)
 
 # Start Flask app in a separate thread
-flask_thread = threading.Thread(target=run_flask)
-flask_thread.start()
+threading.Thread(target=run_flask, daemon=True).start()
 
 # ========== DISCORD BOT SETUP ==========
 load_dotenv()
@@ -442,11 +441,4 @@ async def wyr(ctx):
     await wyr_message.add_reaction("2️⃣")
 
 # Run bot
-bot.run(token, log_handler=handler, log_level=logging.DEBUG)
-
-
-
-
-
-
-
+bot.run(token, log_handler=handler, log_level=logging.INFO)
