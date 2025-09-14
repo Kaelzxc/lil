@@ -454,7 +454,7 @@ async def wyr(ctx):
     # Reactions for voting
     await wyr_message.add_reaction("1️⃣")
     await wyr_message.add_reaction("2️⃣")
-# ===== Live Match Auto-Updater =====
+    
 @tasks.loop(seconds=60)
 async def update_live_matches():
     if not live_match_messages:
@@ -487,58 +487,39 @@ async def update_live_matches():
     event = seg.get("match_event") or seg.get("tournament_name") or "Unknown Event"
     series = seg.get("match_series") or seg.get("round_info") or ""
 
+    # Build embed
     embed = discord.Embed(
-    title=f"🏆 {event}",
-    description=f"**{series}**\n\n🔴 **LIVE NOW**",
-    color=discord.Color.red(),
-    timestamp=datetime.datetime.utcnow()
-)
-
-# Add team names and scores side by side
-embed.add_field(
-    name=f"🟥 {t1}",
-    value=f"**{s1}**",
-    inline=True
-)
-embed.add_field(
-    name="⚔️ VS ⚔️",
-    value="—",
-    inline=True
-)
-embed.add_field(
-    name=f"🟦 {t2}",
-    value=f"**{s2}**",
-    inline=True
-)
-
-# Add maps if available
-if seg.get("maps"):
-    maps_info = []
-    for m in seg["maps"]:
-        map_name = m.get("map", "Unknown Map")
-        mscore = m.get("score", "–")
-        maps_info.append(f"• **{map_name}** → `{mscore}`")
-    embed.add_field(
-        name="🗺️ Maps",
-        value="\n".join(maps_info),
-        inline=False
+        title=f"🏆 {event}",
+        description=f"**{series}**\n\n🔴 **LIVE NOW**",
+        color=discord.Color.red(),
+        timestamp=datetime.datetime.utcnow()
     )
 
-# Logos side by side (thumbnail + author icon trick)
-if logo1:
-    embed.set_thumbnail(url=logo1)
-if logo2:
-    embed.set_author(name=t2, icon_url=logo2)
+    embed.add_field(name=f"🟥 {t1}", value=f"**{s1}**", inline=True)
+    embed.add_field(name="⚔️ VS ⚔️", value="—", inline=True)
+    embed.add_field(name=f"🟦 {t2}", value=f"**{s2}**", inline=True)
 
-embed.set_footer(text="Auto-updating every 60s • Data from vlr.gg API")
+    if seg.get("maps"):
+        maps_info = []
+        for m in seg["maps"]:
+            map_name = m.get("map", "Unknown Map")
+            mscore = m.get("score", "–")
+            maps_info.append(f"• **{map_name}** → `{mscore}`")
+        embed.add_field(name="🗺️ Maps", value="\n".join(maps_info), inline=False)
 
-    for channel_id, msg in live_match_messages.items():
+    if logo1:
+        embed.set_thumbnail(url=logo1)
+    if logo2:
+        embed.set_author(name=t2, icon_url=logo2)
+
+    embed.set_footer(text="Auto-updating every 60s • Data from vlr.gg API")
+
+    for channel_id, msg in list(live_match_messages.items()):
         try:
             await msg.edit(embed=embed)
         except Exception as e:
             print(f"Failed to update live match message in {channel_id}: {e}")
 
-# ===== VCT Command =====
 @bot.command()
 async def vct(ctx, mode: str = "upcoming"):
     mode = mode.lower()
@@ -567,25 +548,25 @@ async def vct(ctx, mode: str = "upcoming"):
         logo1 = normalize_url(seg.get("team1_logo") or seg.get("flag1"))
         logo2 = normalize_url(seg.get("team2_logo") or seg.get("flag2"))
 
+        # Build embed
         embed = discord.Embed(
-    title=f"🏆 {event}",
-    description=f"**{series}**\n\n🕒 **Live Now 🔴**",
-    color=discord.Color.red(),
-    timestamp=datetime.datetime.utcnow()
-)
+            title=f"🏆 {event}",
+            description=f"**{series}**\n\n🕒 **Live Now 🔴**",
+            color=discord.Color.red(),
+            timestamp=datetime.datetime.utcnow()
+        )
 
-embed.add_field(
-    name="📊 Scoreboard",
-    value=f"**{t1}** {s1} 🆚 {s2} **{t2}**",
-    inline=False
-)
+        embed.add_field(
+            name="📊 Scoreboard",
+            value=f"**{t1}** {s1} 🆚 {s2} **{t2}**",
+            inline=False
+        )
 
-if logo1 and logo2:
-    embed.set_thumbnail(url=logo1)
-    embed.set_image(url=logo2)
+        if logo1 and logo2:
+            embed.set_thumbnail(url=logo1)
+            embed.set_image(url=logo2)
 
-embed.set_footer(text="Auto-updating every 60s • Powered by vlr.gg API")
-
+        embed.set_footer(text="Auto-updating every 60s • Powered by vlr.gg API")
 
         msg = await ctx.send(embed=embed)
         live_match_messages[ctx.channel.id] = msg
@@ -594,9 +575,10 @@ embed.set_footer(text="Auto-updating every 60s • Powered by vlr.gg API")
             update_live_matches.start()
     else:
         await ctx.send("⚠️ Use `!vct live` for live match tracking.")
-        
+
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
 
 
