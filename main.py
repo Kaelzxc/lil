@@ -571,8 +571,8 @@ async def vct(ctx, mode: str = "upcoming"):
 
         await ctx.send(embed=embed)
 
-
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
 
