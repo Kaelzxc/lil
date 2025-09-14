@@ -40,18 +40,27 @@ valorant_role = "Valorant"
 tft_role = "Teamfight Tactics"
 lol_role = "League of Legends"
 
+# ===== STATUS FILES =====
 LIL_STATUS_FILE = "CHI_status.json"
+SAV_STATUS_FILE = "SAV_status.json"
+YUKS_STATUS_FILE = "YUKS_status.json"
 
-# Load lil status from file on startup
-try:
-    with open(LIL_STATUS_FILE, "r") as f:
-        lil_status = json.load(f).get("status", None)
-except (FileNotFoundError, json.JSONDecodeError):
-    lil_status = None
+# ===== STATUS LOADERS =====
+def load_status(file):
+    try:
+        with open(file, "r") as f:
+            return json.load(f).get("status", None)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
 
-def save_lil_status():
-    with open(LIL_STATUS_FILE, "w") as f:
-        json.dump({"status": lil_status}, f)
+def save_status(file, status):
+    with open(file, "w") as f:
+        json.dump({"status": status}, f)
+
+# Initial status values
+lil_status = load_status(LIL_STATUS_FILE)
+sav_status = load_status(SAV_STATUS_FILE)
+yuks_status = load_status(YUKS_STATUS_FILE)
 
 async def fetch_giphy_gif(search_term):
     async with aiohttp.ClientSession() as session:
@@ -106,28 +115,64 @@ async def on_message(message):
 async def hello(ctx):
     await ctx.send(f"Hello {ctx.author.mention}!")
 
+# ===== STATUS COMMANDS =====
 @bot.command()
 async def lil(ctx, *, status: str = None):
     global lil_status
-
-    # ID of the only person who can change lil status
-    ALLOWED_USER_ID = 625311802703740968  # <-- replace with your Discord user ID
+    ALLOWED_USER_ID = 625311802703740968  # Lil's ID
 
     if status is None:
-        # Just viewing the current status
         if lil_status:
             await ctx.send(f"📢 Lil is currently **{lil_status}**!")
         else:
             await ctx.send("Lil status has not been set yet.")
     else:
-        # Trying to update the status
         if ctx.author.id != ALLOWED_USER_ID:
             await ctx.send("❌ You are not allowed to change Lil's status.")
             return
 
         lil_status = status
-        save_lil_status()
+        save_status(LIL_STATUS_FILE, lil_status)
         await ctx.send(f"✅ Lil's status has been set to **{status}**!")
+
+@bot.command()
+async def sav(ctx, *, status: str = None):
+    global sav_status
+    ALLOWED_USER_ID = 734792664767266957  # Sav's ID
+
+    if status is None:
+        if sav_status:
+            await ctx.send(f"😡 Sav is currently **{sav_status}**!")
+        else:
+            await ctx.send("Sav status has not been set yet.")
+    else:
+        if ctx.author.id != ALLOWED_USER_ID:
+            await ctx.send("❌ You are not allowed to change Sav's status.")
+            return
+
+        sav_status = status
+        save_status(SAV_STATUS_FILE, sav_status)
+        await ctx.send(f"✅ Sav's status has been set to **{status}**!")
+
+@bot.command()
+async def yuks(ctx, *, status: str = None):
+    global yuks_status
+    ALLOWED_USER_ID = 1280132085616738387  # Yuks' ID
+
+    if status is None:
+        if yuks_status:
+            await ctx.send(f"😏 Yuks is currently **{yuks_status}**!")
+        else:
+            await ctx.send("Yuks status has not been set yet.")
+    else:
+        if ctx.author.id != ALLOWED_USER_ID:
+            await ctx.send("❌ You are not allowed to change Yuks' status.")
+            return
+
+        yuks_status = status
+        save_status(YUKS_STATUS_FILE, yuks_status)
+        await ctx.send(f"✅ Yuks' status has been set to **{status}**!")
+
 
 @bot.command()
 async def tiktok(ctx):
@@ -174,7 +219,7 @@ async def lol(ctx):
 
 @bot.command()
 async def lilcommands(ctx):
-    await ctx.reply("!hello, !lil, !tiktok, !rank, !aiz")
+    await ctx.reply("!hello, !lil, !sav, !yuks, !tiktok, !rank, !aiz")
 
 @bot.command()
 async def poll(ctx, *, question):
@@ -402,6 +447,7 @@ async def wyr(ctx):
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.DEBUG)
+
 
 
 
