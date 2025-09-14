@@ -458,6 +458,7 @@ async def vct(ctx, mode: str = "upcoming"):
         "results": "results"
     }
     mode_key = mode.lower()
+
     if mode_key not in mode_map:
         await ctx.send("❌ Invalid mode! Use: `!vct upcoming`, `!vct live`, or `!vct results`")
         return
@@ -467,43 +468,50 @@ async def vct(ctx, mode: str = "upcoming"):
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(url, timeout=15) as resp:
+                resp_text = await resp.text()
+                print(f"[VCT DEBUG] GET {url} → {resp.status}\nResponse preview: {resp_text[:300]}")
+
+                if resp.status == 404:
+                    await ctx.send(f"ℹ️ No {mode_key} matches found right now.")
+                    return
                 if resp.status != 200:
                     await ctx.send(f"⚠️ API error (status {resp.status}). Try again later.")
                     return
+
                 data = await resp.json()
         except Exception as e:
-            await ctx.send(f"⚠️ Error fetching match data: {e}")
+            await ctx.send("⚠️ Error fetching match data: " + repr(e))
             return
 
-    segments = data.get("data", {}).get("segments", [])
+    segments = data.get("data", {}).get("segments", []) or data.get("data", {}).get("matches", [])
     if not segments:
         await ctx.send(f"ℹ️ No {mode_key} matches found right now.")
         return
 
-    for seg in segments[:3]:  # Show top 3 matches
-        # Team names
-        t1 = seg.get("team1", "TBD")
-        t2 = seg.get("team2", "TBD")
+    # Show top 3 matches
+    for seg in segments[:3]:
+        # ✅ Team names
+        t1 = seg.get("team1") or seg.get("team1_name") or seg.get("teams", [{}])[0].get("name", "TBD")
+        t2 = seg.get("team2") or seg.get("team2_name") or seg.get("teams", [{},""])[1].get("name", "TBD")
 
-        # Logos
-        logo1 = seg.get("team1_logo") or seg.get("flag1")
-        logo2 = seg.get("team2_logo") or seg.get("flag2")
+        # ✅ Scores
+        s1 = seg.get("score1") or seg.get("team1_score") or seg.get("score_a")
+        s2 = seg.get("score2") or seg.get("team2_score") or seg.get("score_b")
+        match_score = seg.get("match_score")
 
-        # Scores
-        s1 = seg.get("score1")
-        s2 = seg.get("score2")
+        # ✅ Event / Series
+        event = seg.get("match_event") or seg.get("tournament_name") or "Unknown Event"
+        series = seg.get("match_series") or seg.get("round_info") or ""
 
-        # Event / Series Info
-        event = seg.get("match_event") or seg.get("tournament_name", "Unknown Event")
-        series = seg.get("match_series") or seg.get("round_info", "")
-
-        # Time info
+        # ✅ Time info
         if mode_key == "results":
-            time_info = seg.get("time_completed", "N/A")
+            time_info = seg.get("time_completed") or seg.get("unix_timestamp") or "Finished"
+        elif mode_key == "live":
+            time_info = "Live Now 🔴"
         else:
-            time_info = seg.get("time_until_match", "TBD")
+            time_info = seg.get("time_until_match") or seg.get("unix_timestamp") or "TBD"
 
-        # Build embed
+        # ✅ Build embed
         embed = discord.Embed(
             title=f"{event}" + (f" • {series}" if series else ""),
             color=(
@@ -513,41 +521,29 @@ async def vct(ctx, mode: str = "upcoming"):
             )
         )
 
-        # Matchup with scores if available
-        if mode_key in ["results", "live"] and s1 is not None and s2 is not None:
-            embed.add_field(
-                name="Match",
-                value=f"**{t1}** {s1} – {s2} **{t2}**",
-                inline=False
-            )
+        # Show matchup & score
+        if mode_key in ("results", "live") and (match_score or (s1 is not None and s2 is not None)):
+            scoreline = match_score if match_score else f"{s1} – {s2}"
+            embed.add_field(name="Match", value=f"**{t1}** {scoreline} **{t2}**", inline=False)
         else:
-            embed.add_field(
-                name="Match",
-                value=f"**{t1}** vs **{t2}**",
-                inline=False
-            )
+            embed.add_field(name="Match", value=f"**{t1}** vs **{t2}**", inline=False)
 
         # Add time info
         embed.add_field(name="🕒 Time", value=time_info, inline=True)
 
-        # Show team logos (if both exist)
-        if logo1 and logo2:
-            embed.set_thumbnail(url=normalize_url(logo1))
-            embed.set_image(url=normalize_url(logo2))
+        # ✅ Map-by-map results (only for results mode)
+        if mode_key == "results" and seg.get("maps"):
+            maps_info = []
+            for m in seg["maps"]:
+                map_name = m.get("map", "Unknown Map")
+                mscore = m.get("score", "–")
+                maps_info.append(f"• {map_name}: {mscore}")
+            embed.add_field(name="📊 Maps", value="\n".join(maps_info), inline=False)
 
         embed.set_footer(text=f"Mode: {mode_key.title()} • Powered by vlr.gg API")
 
         await ctx.send(embed=embed)
 
-
-def normalize_url(u: str) -> str:
-    if not u:
-        return u
-    if u.startswith("//"):
-        return "https:" + u
-    if u.startswith("/"):
-        return "https://www.vlr.gg" + u
-    return u
-
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
