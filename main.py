@@ -467,11 +467,6 @@ async def vct(ctx, mode: str = "upcoming"):
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(url, timeout=15) as resp:
-                resp_text = await resp.text()
-                print(f"[VCT README DEBUG] GET {url} → {resp.status}, preview: {resp_text[:300]}")
-                if resp.status == 404:
-                    await ctx.send(f"ℹ️ No {mode_key} matches found right now.")
-                    return
                 if resp.status != 200:
                     await ctx.send(f"⚠️ API error (status {resp.status}). Try again later.")
                     return
@@ -485,59 +480,60 @@ async def vct(ctx, mode: str = "upcoming"):
         await ctx.send(f"ℹ️ No {mode_key} matches found right now.")
         return
 
-    for seg in segments[:3]:
+    for seg in segments[:3]:  # Show top 3 matches
         # Team names
         t1 = seg.get("team1", "TBD")
         t2 = seg.get("team2", "TBD")
 
-        # Logos / flags
+        # Logos
         logo1 = seg.get("team1_logo") or seg.get("flag1")
         logo2 = seg.get("team2_logo") or seg.get("flag2")
 
-        # Score fields
+        # Scores
         s1 = seg.get("score1")
         s2 = seg.get("score2")
 
-        # Time fields
-        if mode_key == "results":
-            time_info = seg.get("time_completed", seg.get("unix_timestamp", ""))
-        else:
-            time_info = seg.get("time_until_match", seg.get("unix_timestamp", ""))
-
         # Event / Series Info
-        event = seg.get("match_event") or seg.get("tournament_name") or seg.get("match_event")
-        series = seg.get("match_series") or seg.get("round_info")
+        event = seg.get("match_event") or seg.get("tournament_name", "Unknown Event")
+        series = seg.get("match_series") or seg.get("round_info", "")
 
-        # Match page
-        match_page = seg.get("match_page", "")
-        if match_page.startswith("/"):
-            match_page = "https://www.vlr.gg" + match_page
+        # Time info
+        if mode_key == "results":
+            time_info = seg.get("time_completed", "N/A")
+        else:
+            time_info = seg.get("time_until_match", "TBD")
 
         # Build embed
         embed = discord.Embed(
             title=f"{event}" + (f" • {series}" if series else ""),
-            description="",
-            color=(discord.Color.red() if mode_key == "live" else discord.Color.green() if mode_key == "results" else discord.Color.blue())
+            color=(
+                discord.Color.red() if mode_key == "live"
+                else discord.Color.green() if mode_key == "results"
+                else discord.Color.blue()
+            )
         )
 
-        # Logo as thumbnail if available
-        if logo1:
-            embed.set_thumbnail(url=normalize_url(logo1))
-        # Add description with matchup and score
-        if mode_key == "results" and s1 is not None and s2 is not None:
-            embed.add_field(name="Match", value=f"🏆 **{t1}**  **{s1}–{s2}**  **{t2}**", inline=False)
-        elif mode_key == "live" and s1 is not None and s2 is not None:
-            embed.add_field(name="Match", value=f"**{t1}**  **{s1}–{s2}**  **{t2}**", inline=False)
+        # Matchup with scores if available
+        if mode_key in ["results", "live"] and s1 is not None and s2 is not None:
+            embed.add_field(
+                name="Match",
+                value=f"**{t1}** {s1} – {s2} **{t2}**",
+                inline=False
+            )
         else:
-            embed.add_field(name="Match", value=f"**{t1}** vs **{t2}**", inline=False)
+            embed.add_field(
+                name="Match",
+                value=f"**{t1}** vs **{t2}**",
+                inline=False
+            )
 
-        # Time info
-        if time_info:
-            embed.add_field(name="🕒 Time", value=time_info, inline=True)
+        # Add time info
+        embed.add_field(name="🕒 Time", value=time_info, inline=True)
 
-        # Match page link
-        if match_page:
-            embed.add_field(name="🔗 Match Page", value=f"[View on vlr.gg]({match_page})", inline=False)
+        # Show team logos (if both exist)
+        if logo1 and logo2:
+            embed.set_thumbnail(url=normalize_url(logo1))
+            embed.set_image(url=normalize_url(logo2))
 
         embed.set_footer(text=f"Mode: {mode_key.title()} • Powered by vlr.gg API")
 
@@ -555,9 +551,3 @@ def normalize_url(u: str) -> str:
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
-
-
-
-
-
-
