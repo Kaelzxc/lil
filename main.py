@@ -468,17 +468,12 @@ async def vct(ctx, mode: str = "upcoming"):
     async with aiohttp.ClientSession() as session:
         try:
             async with session.get(url, timeout=10) as resp:
-                text = await resp.text()
-                print(f"[VCT Debug] GET {url} → Status: {resp.status}, Body starts with: {text[:200]}")
-
-                # Handle "no matches" response (404 or empty JSON)
                 if resp.status == 404:
                     await ctx.send(f"ℹ️ No {mode} matches found right now.")
                     return
                 if resp.status != 200:
                     await ctx.send(f"⚠️ API error (status {resp.status}). Try again later.")
                     return
-
                 data = await resp.json()
         except Exception as e:
             await ctx.send("⚠️ Error fetching match data: " + str(e))
@@ -492,24 +487,48 @@ async def vct(ctx, mode: str = "upcoming"):
     for seg in segments[:3]:
         team1 = seg.get("team1", "TBD")
         team2 = seg.get("team2", "TBD")
+        event = seg.get("match_event", "Unknown Event")
         series = seg.get("match_series", "")
-        event = seg.get("match_event", "")
-        time_until = seg.get("time_until_match", "") or seg.get("unix_timestamp", "")
+        time_until = seg.get("time_until_match", seg.get("unix_timestamp", "TBD"))
         match_page = seg.get("match_page", "")
 
+        # Extra fields (results mode only)
+        team1_score = seg.get("team1_score", "")
+        team2_score = seg.get("team2_score", "")
+        winner = seg.get("winner", "")
+
+        # Title/description
+        if mode.lower() == "results":
+            scoreline = f"📊 **{team1_score} - {team2_score}**"
+            if winner == "1":
+                matchup = f"🏆 **{team1}** vs {team2}"
+            elif winner == "2":
+                matchup = f"{team1} vs 🏆 **{team2}**"
+            else:
+                matchup = f"{team1} vs {team2}"
+        else:
+            scoreline = ""
+            matchup = f"{team1} vs {team2}"
+
+        # Embed
         embed = discord.Embed(
             title=f"{event} • {series}",
-            description=f"**{team1} vs {team2}**\n🕒 {time_until}",
-            color=discord.Color.green() if mode.lower() == "live" else discord.Color.blue()
+            description=f"**{matchup}**\n{scoreline}\n🕒 {time_until}",
+            color=discord.Color.green() if mode.lower() == "live" else (
+                discord.Color.red() if mode.lower() == "results" else discord.Color.blue()
+            )
         )
+
         if match_page:
-            embed.add_field(name="Match Page", value=f"[Click here to view]({match_page})", inline=False)
+            embed.add_field(name="🔗 Match Page", value=f"[View on vlr.gg]({match_page})", inline=False)
+
         embed.set_footer(text=f"Mode: {mode.title()} • Powered by vlr.gg API")
 
         await ctx.send(embed=embed)
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
 
 
