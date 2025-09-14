@@ -459,7 +459,7 @@ async def vct(ctx, mode: str = "upcoming"):
     }
 
     if mode.lower() not in mode_map:
-        await ctx.send("❌ Invalid mode! Use one of: `!vct upcoming`, `!vct live`, `!vct results`")
+        await ctx.send("❌ Invalid mode! Use: `!vct upcoming`, `!vct live`, `!vct results`")
         return
 
     q = mode_map[mode.lower()]
@@ -492,14 +492,22 @@ async def vct(ctx, mode: str = "upcoming"):
         time_until = seg.get("time_until_match", seg.get("unix_timestamp", "TBD"))
         match_page = seg.get("match_page", "")
 
-        # Extra fields (results mode only)
-        team1_score = seg.get("team1_score", "")
-        team2_score = seg.get("team2_score", "")
+        # ✅ Try all possible score fields
+        team1_score = seg.get("team1_score") or seg.get("score1") or ""
+        team2_score = seg.get("team2_score") or seg.get("score2") or ""
+        match_score = seg.get("match_score", "")
+
+        # Pick best available score format
+        if match_score:
+            scoreline = f"📊 **{match_score}**"
+        elif team1_score != "" and team2_score != "":
+            scoreline = f"📊 **{team1_score} - {team2_score}**"
+        else:
+            scoreline = ""
+
         winner = seg.get("winner", "")
 
-        # Title/description
         if mode.lower() == "results":
-            scoreline = f"📊 **{team1_score} - {team2_score}**"
             if winner == "1":
                 matchup = f"🏆 **{team1}** vs {team2}"
             elif winner == "2":
@@ -507,20 +515,18 @@ async def vct(ctx, mode: str = "upcoming"):
             else:
                 matchup = f"{team1} vs {team2}"
         else:
-            scoreline = ""
             matchup = f"{team1} vs {team2}"
 
-        # Embed
         embed = discord.Embed(
             title=f"{event} • {series}",
-            description=f"**{matchup}**\n{scoreline}\n🕒 {time_until}",
+            description=f"**{matchup}**\n{scoreline}\n🕒 {time_until if time_until else 'Finished'}",
             color=discord.Color.green() if mode.lower() == "live" else (
                 discord.Color.red() if mode.lower() == "results" else discord.Color.blue()
             )
         )
 
         if match_page:
-            embed.add_field(name="🔗 Match Page", value=f"[View on vlr.gg]({match_page})", inline=False)
+            embed.add_field(name="🔗 Match Page", value=f"[Click here to view](https://www.vlr.gg{match_page})", inline=False)
 
         embed.set_footer(text=f"Mode: {mode.title()} • Powered by vlr.gg API")
 
@@ -528,6 +534,7 @@ async def vct(ctx, mode: str = "upcoming"):
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
 
 
