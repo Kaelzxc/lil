@@ -45,6 +45,8 @@ valorant_role = "Valorant"
 tft_role = "Teamfight Tactics"
 lol_role = "League of Legends"
 
+live_match_messages = {}
+
 # ===== STATUS FILES =====
 LIL_STATUS_FILE = "CHI_status.json"
 SAV_STATUS_FILE = "SAV_status.json"
@@ -575,6 +577,7 @@ async def vct(ctx, mode: str = "upcoming"):
         
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
 
 
