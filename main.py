@@ -201,6 +201,10 @@ async def aiz(ctx):
     await ctx.send(f"soft spoken clove main yan hehe sarap {ctx.author.mention}!")
 
 @bot.command()
+async def tsukki(ctx):
+    await ctx.send(f"yearner na clove main yan hehe {ctx.author.mention}!")
+
+@bot.command()
 async def valorant(ctx):
     role = discord.utils.get(ctx.guild.roles, name=valorant_role)
     if role:
@@ -610,6 +614,7 @@ async def vct(ctx, mode: str = "upcoming"):
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
 
 
