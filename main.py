@@ -27,9 +27,9 @@ flask_thread = threading.Thread(target=run_flask)
 flask_thread.start()
 
 # ========== DISCORD BOT SETUP ==========
-load_dotenv()  # you can even remove this on Render if you want
+load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
-GIPHY_API_KEY = os.getenv('GIPHY_API_KEY')
+GIPHY_API_KEY = os.getenv('GIPHY_API_KEY')  # Put your Giphy API key in .env
 
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 intents = discord.Intents.default()
@@ -612,8 +612,9 @@ async def vct(ctx, mode: str = "upcoming"):
     else:
         await ctx.send("⚠️ Use `!vct live` for live match tracking.")
 
-if __name__ == "__main__":
-    bot.run(token, log_handler=handler, log_level=logging.INFO)
+
+bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
 
 
