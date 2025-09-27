@@ -10,22 +10,6 @@ from flask import Flask
 import threading
 import datetime
 
-
-# ========== FLASK APP FOR RENDER HOSTING ==========
-app = Flask('')
-
-@app.route('/')
-def home():
-    return "Bot is running!"
-
-def run_flask():
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
-
-# Start Flask app in a separate thread
-flask_thread = threading.Thread(target=run_flask)
-flask_thread.start()
-
 # ========== DISCORD BOT SETUP ==========
 load_dotenv()
 token = os.getenv('DISCORD_TOKEN')
@@ -614,6 +598,7 @@ async def vct(ctx, mode: str = "upcoming"):
 
 
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
 
 
