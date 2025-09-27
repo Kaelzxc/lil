@@ -28,8 +28,8 @@ flask_thread.start()
 
 # ========== DISCORD BOT SETUP ==========
 load_dotenv()
-token = os.getenv('DISCORD_TOKEN')
-GIPHY_API_KEY = os.getenv('GIPHY_API_KEY')  # Put your Giphy API key in .env
+token = os.getenv('MTQxMjg1NzY1MTc1NDMwNzYwNA.GM0fvf.67gTdRUsQc1Q4UZDPhTjfjKt-CqFH_grau4PMg')
+GIPHY_API_KEY = os.getenv('jaUqVAWlJvFQIvCVGMSNyl9HcGOP8ABB')  # Put your Giphy API key in .env
 
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 intents = discord.Intents.default()
@@ -614,6 +614,7 @@ async def vct(ctx, mode: str = "upcoming"):
 
 # Run bot
 bot.run(token, log_handler=handler, log_level=logging.INFO)
+
 
 
 
